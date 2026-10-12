@@ -1,0 +1,47 @@
+name: Build DLL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Release x64
+    runs-on: windows-2022
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build solution
+        shell: pwsh
+        run: |
+          $solution = "Nefarious Cheats.sln"
+          $project = "GTAV/GTAV.vcxproj"
+          if (!(Test-Path $solution)) {
+            throw "Missing solution: $solution"
+          }
+          if (!(Test-Path $project)) {
+            throw "Missing project: $project. Commit the complete project source."
+          }
+          msbuild $solution /m /t:Build /p:Configuration=Release /p:Platform=x64 "/p:OutDir=$env:GITHUB_WORKSPACE/build-output/" /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Upload compiled DLLs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ozark-dll-Release-x64
+          path: build-output/**/*.dll
+          if-no-files-found: error
+          retention-days: 7
